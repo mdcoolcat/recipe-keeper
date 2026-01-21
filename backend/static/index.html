@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe Keeper - Extract Recipes from Videos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #f0f0f0;
+            display: none;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .platform-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .platform-youtube {
+            background: #ff0000;
+            color: white;
+        }
+
+        .platform-tiktok {
+            background: #000000;
+            color: white;
+        }
+
+        .platform-instagram {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            color: white;
+        }
+
+        .recipe-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .recipe-title-link {
+            color: #333;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .recipe-title-link:hover {
+            color: #667eea;
+        }
+
+        .thumbnail-link {
+            display: block;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .thumbnail-link:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .thumbnail-link::after {
+            content: '▶';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4rem;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .thumbnail-link:hover::after {
+            opacity: 0.9;
+        }
+
+        .recipe-thumbnail {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 12px;
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            color: #555;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .ingredients-list, .steps-list {
+            list-style-position: inside;
+            padding-left: 0;
+        }
+
+        .ingredients-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            color: #444;
+        }
+
+        .ingredients-list li:last-child {
+            border-bottom: none;
+        }
+
+        .steps-list {
+            counter-reset: step-counter;
+            list-style: none;
+        }
+
+        .steps-list li {
+            counter-increment: step-counter;
+            padding: 12px 0;
+            padding-left: 40px;
+            position: relative;
+            color: #444;
+            line-height: 1.6;
+        }
+
+        .steps-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .source-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #f5f5f5;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .source-link:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .error {
+            display: none;
+            padding: 16px;
+            background: #fee;
+            border-left: 4px solid #f44;
+            border-radius: 8px;
+            color: #c33;
+            margin-top: 20px;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .supported-platforms {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+
+        .supported-platforms h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .platforms {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .platform-icon {
+            font-size: 0.85rem;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍳 Recipe Keeper</h1>
+        <p class="subtitle">Extract recipes from cooking videos on YouTube, TikTok, and Instagram</p>
+
+        <div class="input-group">
+            <label for="videoUrl">Video URL</label>
+            <input
+                type="text"
+                id="videoUrl"
+                placeholder="Paste a YouTube, TikTok, or Instagram video URL..."
+                autocomplete="off"
+            />
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" id="extractBtn" onclick="extractRecipe()">
+                Extract Recipe
+            </button>
+            <button class="btn-secondary" onclick="clearResults()">
+                Clear
+            </button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p class="loading-text">Extracting recipe from video...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <span class="platform-badge" id="platformBadge"></span>
+            <h2 class="recipe-title">
+                <a href="#" id="recipeTitleLink" class="recipe-title-link" target="_blank"></a>
+            </h2>
+
+            <a href="#" id="thumbnailLink" class="thumbnail-link" target="_blank" style="display: none;">
+                <img id="recipeThumbnail" class="recipe-thumbnail" alt="Recipe thumbnail" />
+            </a>
+
+            <div class="section">
+                <h3 class="section-title">📝 Ingredients</h3>
+                <ul class="ingredients-list" id="ingredientsList"></ul>
+            </div>
+
+            <div class="section" id="stepsSection" style="display: none;">
+                <h3 class="section-title">👨‍🍳 Instructions</h3>
+                <ol class="steps-list" id="stepsList"></ol>
+            </div>
+
+            <a href="#" id="sourceLink" class="source-link" target="_blank">
+                🎥 View Original Video
+            </a>
+        </div>
+
+        <div class="supported-platforms">
+            <h3>Supported Platforms</h3>
+            <div class="platforms">
+                <span class="platform-icon">✅ YouTube (Shorts & Videos)</span>
+                <span class="platform-icon">✅ TikTok</span>
+                <span class="platform-icon">✅ Instagram Reels</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+
+        async function extractRecipe() {
+            const urlInput = document.getElementById('videoUrl');
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                showError('Please enter a video URL');
+                return;
+            }
+
+            // Hide previous results and errors
+            hideError();
+            hideResult();
+            showLoading();
+
+            // Disable button
+            const extractBtn = document.getElementById('extractBtn');
+            extractBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/extract-recipe`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.recipe) {
+                    displayRecipe(data.recipe, data.platform);
+                } else {
+                    showError(data.error || 'Failed to extract recipe');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error. Make sure the backend server is running on port 8000.');
+            } finally {
+                hideLoading();
+                extractBtn.disabled = false;
+            }
+        }
+
+        function displayRecipe(recipe, platform) {
+            // Set platform badge
+            const platformBadge = document.getElementById('platformBadge');
+            platformBadge.textContent = platform.toUpperCase();
+            platformBadge.className = `platform-badge platform-${platform}`;
+
+            // Set title (clickable)
+            const titleLink = document.getElementById('recipeTitleLink');
+            titleLink.textContent = recipe.title;
+            titleLink.href = recipe.source_url;
+
+            // Set thumbnail (clickable)
+            const thumbnailLink = document.getElementById('thumbnailLink');
+            const thumbnail = document.getElementById('recipeThumbnail');
+            if (recipe.thumbnail_url) {
+                thumbnail.src = recipe.thumbnail_url;
+                thumbnailLink.href = recipe.source_url;
+                thumbnailLink.style.display = 'block';
+            } else {
+                thumbnailLink.style.display = 'none';
+            }
+
+            // Set ingredients
+            const ingredientsList = document.getElementById('ingredientsList');
+            ingredientsList.innerHTML = '';
+            recipe.ingredients.forEach(ingredient => {
+                const li = document.createElement('li');
+                li.textContent = ingredient;
+                ingredientsList.appendChild(li);
+            });
+
+            // Set steps (if available)
+            const stepsSection = document.getElementById('stepsSection');
+            const stepsList = document.getElementById('stepsList');
+            stepsList.innerHTML = '';
+
+            if (recipe.steps && recipe.steps.length > 0) {
+                stepsSection.style.display = 'block';
+                recipe.steps.forEach(step => {
+                    const li = document.createElement('li');
+                    li.textContent = step;
+                    stepsList.appendChild(li);
+                });
+            } else {
+                stepsSection.style.display = 'none';
+            }
+
+            // Set source link
+            const sourceLink = document.getElementById('sourceLink');
+            sourceLink.href = recipe.source_url;
+
+            // Show result
+            showResult();
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('active');
+        }
+
+        function showResult() {
+            document.getElementById('result').classList.add('active');
+        }
+
+        function hideResult() {
+            document.getElementById('result').classList.remove('active');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.remove('active');
+        }
+
+        function clearResults() {
+            document.getElementById('videoUrl').value = '';
+            hideResult();
+            hideError();
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('videoUrl').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                extractRecipe();
+            }
+        });
+    </script>
+</body>
+</html>

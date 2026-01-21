@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(/Users/dmei/Documents/my-project-learning/recipe-keeper/path/to/venv/bin/python:*)",
+      "Bash(/Users/dmei/Documents/my-project-learning/recipe-keeper/path/to/venv/bin/pip install:*)",
+      "Bash(python3:*)",
+      "Bash(/Users/dmei/Documents/my-project-learning/recipe-keeper/path/to/venv/bin/python3:*)",
+      "Bash(brew install:*)",
+      "Bash(/Users/dmei/Documents/my-project-learning/recipe-keeper/path/to/venv/bin/yt-dlp:*)",
+      "Bash(source:*)",
+      "Bash(python main.py:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(python:*)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:railway.app)",
+      "WebFetch(domain:render.com)",
+      "WebFetch(domain:fly.io)",
+      "WebFetch(domain:railway.com)",
+      "WebFetch(domain:docs.render.com)",
+      "WebFetch(domain:docs.railway.com)",
+      "WebFetch(domain:docs.railway.app)",
+      "WebFetch(domain:nixpacks.com)",
+      "WebFetch(domain:community.render.com)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
