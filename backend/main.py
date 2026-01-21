@@ -42,9 +42,9 @@ async def root():
     return FileResponse(os.path.join(static_dir, "index.html"))
 
 
-@app.get("/api/health", response_model=HealthResponse)
+@app.api_route("/api/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint - supports both GET and HEAD for monitoring"""
     return HealthResponse(status="ok", version="1.0.0")
 
 
