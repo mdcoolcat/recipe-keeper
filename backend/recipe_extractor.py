@@ -71,7 +71,13 @@ Return ONLY the JSON object, no other text.
             return self._parse_response(response.text, url, platform, thumbnail_url)
 
         except Exception as e:
-            print(f"Error extracting recipe from text: {str(e)}")
+            error_msg = str(e)
+            print(f"Error extracting recipe from text: {error_msg}")
+
+            # Check for quota exceeded error
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+                raise Exception("QUOTA_EXCEEDED: Gemini API daily quota exceeded. Please wait until midnight PT for reset or upgrade to pay-as-you-go.")
+
             return None
 
     def extract_from_video_file(self, video_path: str, url: str, platform: str, thumbnail_url: Optional[str] = None) -> Optional[Recipe]:
@@ -113,9 +119,15 @@ Return ONLY the JSON object, no other text.
             return self._parse_response(response.text, url, platform, thumbnail_url)
 
         except Exception as e:
-            print(f"Error extracting recipe from video file: {str(e)}")
+            error_msg = str(e)
+            print(f"Error extracting recipe from video file: {error_msg}")
             import traceback
             traceback.print_exc()
+
+            # Check for quota exceeded error
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower():
+                raise Exception("QUOTA_EXCEEDED: Gemini API daily quota exceeded. Please wait until midnight PT for reset or upgrade to pay-as-you-go.")
+
             return None
 
     def _build_prompt(self) -> str:

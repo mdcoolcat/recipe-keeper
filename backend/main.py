@@ -148,13 +148,23 @@ async def extract_recipe(request: ExtractRecipeRequest):
         if video_path:
             video_processor.cleanup(video_path)
 
-        print(f"Error processing request: {str(e)}")
+        error_msg = str(e)
+        print(f"Error processing request: {error_msg}")
         import traceback
         traceback.print_exc()
+
+        # Check for quota exceeded error
+        if "QUOTA_EXCEEDED" in error_msg:
+            return ExtractRecipeResponse(
+                success=False,
+                platform=platform,
+                error="⚠️ Gemini API quota exceeded. The free tier limit is ~15-20 requests/day. Please try again after midnight PT, or upgrade to pay-as-you-go at https://aistudio.google.com/ (costs ~$0.001 per extraction)."
+            )
+
         return ExtractRecipeResponse(
             success=False,
             platform=platform,
-            error=f"Internal server error: {str(e)}"
+            error=f"Internal server error: {error_msg}"
         )
 
 
