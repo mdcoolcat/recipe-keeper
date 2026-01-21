@@ -25,13 +25,9 @@ COPY . .
 # Create temp directory for video downloads
 RUN mkdir -p /tmp/recipe-keeper
 
-# Expose port (Render sets PORT env variable)
-ENV PORT=8000
+# Expose port (Render sets PORT env variable automatically)
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:$PORT/api/health || exit 1
-
 # Start uvicorn server
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info
+# Render sets $PORT environment variable, uvicorn will use it
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info
