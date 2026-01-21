@@ -3,6 +3,11 @@ import csv
 import requests
 import json
 import time
+import sys
+import os
+
+# Add parent directory to path so we can import backend modules if needed
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 API_URL = "http://localhost:8000/api/extract-recipe"
 
@@ -87,7 +92,9 @@ def main():
     print("Starting Recipe Extraction Tests")
     print("Reading test_urls.csv...")
 
-    with open('../test_urls.csv', 'r', encoding='utf-8') as f:
+    # test_urls.csv is in the same directory as this test file
+    csv_path = os.path.join(os.path.dirname(__file__), 'test_urls.csv')
+    with open(csv_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         tests = list(reader)
 

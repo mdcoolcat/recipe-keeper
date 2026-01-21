@@ -6,12 +6,16 @@ from models import (
     ExtractRecipeRequest,
     ExtractRecipeResponse,
     HealthResponse,
-    Recipe
+    Recipe,
+    CacheStatsResponse
 )
 from platform_detector import detect_platform
 from video_processor import video_processor
 from recipe_extractor import recipe_extractor
 from config import config
+from cache_manager import cache_manager
+from url_normalizer import url_normalizer
+from datetime import datetime
 import os
 
 # Initialize FastAPI app
@@ -56,6 +60,7 @@ async def extract_recipe(request: ExtractRecipeRequest):
     Supports YouTube, TikTok, and Instagram videos.
     """
     url = request.url
+    use_cache = request.use_cache
 
     # Detect platform
     platform = detect_platform(url)
@@ -64,6 +69,23 @@ async def extract_recipe(request: ExtractRecipeRequest):
             success=False,
             error="Unsupported platform. Please provide a YouTube, TikTok, or Instagram URL."
         )
+
+    # Check cache
+    cache_key = None
+    canonical_url = None
+    if config.CACHE_ENABLED and use_cache:
+        canonical_url, cache_key = url_normalizer.normalize_and_hash(url, platform)
+        print(f"Cache key: {cache_key} for {canonical_url}")
+
+        cached_recipe = await cache_manager.get(cache_key)
+        if cached_recipe:
+            return ExtractRecipeResponse(
+                success=True,
+                platform=platform,
+                recipe=cached_recipe,
+                from_cache=True,
+                cached_at=datetime.now().isoformat()
+            )
 
     recipe = None
     video_path = None
@@ -91,10 +113,14 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 recipe = recipe_extractor.extract_from_text(description, title, url, platform, thumbnail_url)
                 if recipe:
                     print("Successfully extracted from description!")
+                    # Store in cache
+                    if config.CACHE_ENABLED and cache_key:
+                        await cache_manager.set(cache_key, recipe, canonical_url, platform)
                     return ExtractRecipeResponse(
                         success=True,
                         platform=platform,
-                        recipe=recipe
+                        recipe=recipe,
+                        from_cache=False
                     )
 
             # Step 3: Try extracting from author comments
@@ -106,10 +132,14 @@ async def extract_recipe(request: ExtractRecipeRequest):
                     )
                     if recipe:
                         print("Successfully extracted from comment!")
+                        # Store in cache
+                        if config.CACHE_ENABLED and cache_key:
+                            await cache_manager.set(cache_key, recipe, canonical_url, platform)
                         return ExtractRecipeResponse(
                             success=True,
                             platform=platform,
-                            recipe=recipe
+                            recipe=recipe,
+                            from_cache=False
                         )
 
         # Step 4: Fall back to video analysis
@@ -131,10 +161,14 @@ async def extract_recipe(request: ExtractRecipeRequest):
 
         # Check if extraction was successful
         if recipe:
+            # Store in cache
+            if config.CACHE_ENABLED and cache_key:
+                await cache_manager.set(cache_key, recipe, canonical_url, platform)
             return ExtractRecipeResponse(
                 success=True,
                 platform=platform,
-                recipe=recipe
+                recipe=recipe,
+                from_cache=False
             )
         else:
             return ExtractRecipeResponse(
@@ -166,6 +200,58 @@ async def extract_recipe(request: ExtractRecipeRequest):
             platform=platform,
             error=f"Internal server error: {error_msg}"
         )
+
+
+@app.get("/api/cache/stats", response_model=CacheStatsResponse)
+async def get_cache_stats():
+    """Get cache statistics"""
+    if not config.CACHE_ENABLED:
+        return CacheStatsResponse(
+            enabled=False,
+            redis_available=False,
+            redis_size=0,
+            memory_size=0,
+            redis_hits=0,
+            memory_hits=0,
+            total_misses=0,
+            hit_rate=0.0,
+            redis_errors=0,
+            ttl_seconds=0
+        )
+
+    stats = await cache_manager.get_stats()
+    return CacheStatsResponse(
+        enabled=True,
+        redis_available=stats["redis_available"],
+        redis_size=stats["redis_size"],
+        memory_size=stats["memory_size"],
+        redis_hits=stats["redis_hits"],
+        memory_hits=stats["memory_hits"],
+        total_misses=stats["misses"],
+        hit_rate=stats["hit_rate"],
+        redis_errors=stats["redis_errors"],
+        ttl_seconds=config.CACHE_TTL_SECONDS
+    )
+
+
+@app.delete("/api/cache/{cache_key}")
+async def invalidate_cache_entry(cache_key: str):
+    """Invalidate a specific cache entry"""
+    if not config.CACHE_ENABLED:
+        raise HTTPException(status_code=400, detail="Cache is disabled")
+
+    await cache_manager.delete(cache_key)
+    return {"message": f"Cache entry {cache_key} invalidated"}
+
+
+@app.delete("/api/cache")
+async def clear_cache():
+    """Clear entire cache (admin operation)"""
+    if not config.CACHE_ENABLED:
+        raise HTTPException(status_code=400, detail="Cache is disabled")
+
+    await cache_manager.clear()
+    return {"message": "Cache cleared successfully"}
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from typing import List, Optional
 class ExtractRecipeRequest(BaseModel):
     """Request model for recipe extraction endpoint"""
     url: str
+    use_cache: bool = True  # Allow cache bypass
 
 
 class Recipe(BaseModel):
@@ -24,9 +25,25 @@ class ExtractRecipeResponse(BaseModel):
     platform: Optional[str] = None
     recipe: Optional[Recipe] = None
     error: Optional[str] = None
+    from_cache: bool = False  # Indicate cache hit
+    cached_at: Optional[str] = None  # ISO timestamp when cached
 
 
 class HealthResponse(BaseModel):
     """Health check response"""
     status: str
     version: str = "1.0.0"
+
+
+class CacheStatsResponse(BaseModel):
+    """Cache statistics response"""
+    enabled: bool
+    redis_available: bool
+    redis_size: int
+    memory_size: int
+    redis_hits: int
+    memory_hits: int
+    total_misses: int
+    hit_rate: float
+    redis_errors: int
+    ttl_seconds: int

@@ -23,6 +23,14 @@ class Config:
     MAX_VIDEO_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", 100))
     VIDEO_DOWNLOAD_TIMEOUT = int(os.getenv("VIDEO_DOWNLOAD_TIMEOUT", 60))
 
+    # Cache settings
+    CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
+    CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "86400"))  # 24 hours
+    CACHE_MAX_ITEMS = int(os.getenv("CACHE_MAX_ITEMS", "1000"))
+
+    # Redis connection
+    REDIS_URL = os.getenv("REDIS_URL", None)
+
     @classmethod
     def validate(cls):
         """Validate required configuration"""
