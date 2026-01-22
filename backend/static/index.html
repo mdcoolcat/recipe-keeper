@@ -584,7 +584,8 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'http://localhost:8000';
+        // Use current domain for API calls (works for both local and production)
+        const API_BASE_URL = window.location.origin;
 
         async function extractRecipe() {
             const urlInput = document.getElementById('videoUrl');
