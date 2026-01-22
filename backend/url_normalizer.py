@@ -1,11 +1,12 @@
 """
 URL Normalizer for Recipe Keeper
-Normalizes video URLs to canonical form for cache key generation
+Normalizes video and website URLs to canonical form for cache key generation
 """
 
 import re
 import hashlib
 from typing import Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 
 class URLNormalizer:
@@ -90,17 +91,49 @@ class URLNormalizer:
 
         return None
 
-    def normalize_url(self, url: str, platform: str) -> str:
+    def normalize_website_url(self, url: str) -> str:
         """
-        Convert URL to canonical form: {platform}:{video_id}
+        Normalize website URL for caching
+
+        Removes:
+        - Query parameters (e.g., ?utm_source=...)
+        - URL fragments (e.g., #section)
+        - Trailing slashes
+
+        Normalizes:
+        - Scheme to https (http:// → https://)
 
         Args:
-            url: Original video URL
-            platform: Platform name (youtube, tiktok, instagram)
+            url: Website URL
 
         Returns:
-            Canonical URL string in format "platform:video_id"
+            Normalized URL
         """
+        parsed = urlparse(url)
+        # Always use https for normalization
+        scheme = 'https'
+        # Remove query params and fragments, keep only scheme, netloc, and path
+        canonical = urlunparse((scheme, parsed.netloc, parsed.path, '', '', ''))
+        # Remove trailing slash
+        return canonical.rstrip('/')
+
+    def normalize_url(self, url: str, platform: str) -> str:
+        """
+        Convert URL to canonical form: {platform}:{video_id} or {platform}:{canonical_url}
+
+        Args:
+            url: Original video or website URL
+            platform: Platform name (youtube, tiktok, instagram, website)
+
+        Returns:
+            Canonical URL string in format "platform:video_id" or "platform:canonical_url"
+        """
+        # Handle website URLs
+        if platform == "website":
+            canonical_url = self.normalize_website_url(url)
+            return f"website:{canonical_url}"
+
+        # Handle video platforms
         extractors = {
             "youtube": self.extract_youtube_id,
             "tiktok": self.extract_tiktok_id,

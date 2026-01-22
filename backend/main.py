@@ -15,15 +15,19 @@ from recipe_extractor import recipe_extractor
 from config import config
 from cache_manager import cache_manager
 from url_normalizer import url_normalizer
+from web_scraper import WebScraper
 from datetime import datetime
 import os
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Recipe Keeper API",
-    description="Extract recipes from cooking videos on YouTube, TikTok, and Instagram",
+    description="Extract recipes from cooking videos and recipe websites",
     version="1.0.0"
 )
+
+# Initialize web scraper
+web_scraper = WebScraper()
 
 # Configure CORS
 app.add_middleware(
@@ -67,7 +71,7 @@ async def extract_recipe(request: ExtractRecipeRequest):
     if not platform:
         return ExtractRecipeResponse(
             success=False,
-            error="Unsupported platform. Please provide a YouTube, TikTok, or Instagram URL."
+            error="Unsupported URL. Please provide a valid video or website URL."
         )
 
     # Check cache
@@ -87,6 +91,39 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 cached_at=datetime.now().isoformat()
             )
 
+    # NEW: Website extraction
+    if platform == "website":
+        try:
+            print(f"Extracting recipe from website: {url}")
+            recipe = await web_scraper.extract_recipe(url)
+
+            if not recipe:
+                return ExtractRecipeResponse(
+                    success=False,
+                    error="Could not extract recipe from website. The site may not contain a recipe or uses an unsupported format."
+                )
+
+            # Cache result
+            if config.CACHE_ENABLED and cache_key:
+                await cache_manager.set(cache_key, recipe, canonical_url, platform)
+
+            return ExtractRecipeResponse(
+                success=True,
+                platform=platform,
+                recipe=recipe,
+                from_cache=False
+            )
+
+        except Exception as e:
+            print(f"Website extraction error: {e}")
+            import traceback
+            traceback.print_exc()
+            return ExtractRecipeResponse(
+                success=False,
+                error=f"Failed to extract recipe from website: {str(e)}"
+            )
+
+    # Video extraction (existing logic)
     recipe = None
     video_path = None
     thumbnail_url = None

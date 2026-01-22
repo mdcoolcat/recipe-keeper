@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recipe Keeper - Extract Recipes from Videos</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
     <style>
         * {
             margin: 0;
@@ -34,6 +35,15 @@
             color: #333;
             margin-bottom: 10px;
             font-size: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
         }
 
         .subtitle {
@@ -170,6 +180,11 @@
 
         .platform-instagram {
             background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            color: white;
+        }
+
+        .platform-website {
+            background: #667eea;
             color: white;
         }
 
@@ -343,15 +358,18 @@
 </head>
 <body>
     <div class="container">
-        <h1>🍳 Recipe Keeper</h1>
-        <p class="subtitle">Extract recipes from cooking videos on YouTube, TikTok, and Instagram</p>
+        <h1>
+            <img src="/static/favicon.png" alt="Recipe Keeper Logo" class="logo">
+            Recipe Keeper
+        </h1>
+        <p class="subtitle">Extract recipes from cooking videos and recipe websites</p>
 
         <div class="input-group">
-            <label for="videoUrl">Video URL</label>
+            <label for="videoUrl">Video or Recipe Website URL</label>
             <input
                 type="text"
                 id="videoUrl"
-                placeholder="Paste a YouTube, TikTok, or Instagram video URL..."
+                placeholder="Paste a YouTube, TikTok, Instagram, or recipe website URL..."
                 autocomplete="off"
             />
         </div>
@@ -367,7 +385,7 @@
 
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p class="loading-text">Extracting recipe from video...</p>
+            <p class="loading-text">Extracting recipe...</p>
         </div>
 
         <div class="error" id="error"></div>
@@ -400,9 +418,10 @@
         <div class="supported-platforms">
             <h3>Supported Platforms</h3>
             <div class="platforms">
-                <span class="platform-icon">✅ YouTube (Shorts & Videos)</span>
+                <span class="platform-icon">✅ YouTube</span>
                 <span class="platform-icon">✅ TikTok</span>
                 <span class="platform-icon">✅ Instagram Reels</span>
+                <span class="platform-icon">✅ Recipe Websites</span>
             </div>
         </div>
     </div>
@@ -467,9 +486,19 @@
             // Set thumbnail (clickable)
             const thumbnailLink = document.getElementById('thumbnailLink');
             const thumbnail = document.getElementById('recipeThumbnail');
-            if (recipe.thumbnail_url) {
+            if (recipe.thumbnail_url && recipe.thumbnail_url !== '') {
                 thumbnail.src = recipe.thumbnail_url;
+                thumbnail.onerror = function() {
+                    // If thumbnail fails to load, hide the thumbnail section
+                    console.warn('Failed to load thumbnail:', recipe.thumbnail_url);
+                    thumbnailLink.style.display = 'none';
+                };
+                thumbnail.onload = function() {
+                    // Show thumbnail once it successfully loads
+                    thumbnailLink.style.display = 'block';
+                };
                 thumbnailLink.href = recipe.source_url;
+                // Initially show while loading
                 thumbnailLink.style.display = 'block';
             } else {
                 thumbnailLink.style.display = 'none';
@@ -500,9 +529,14 @@
                 stepsSection.style.display = 'none';
             }
 
-            // Set source link
+            // Set source link (conditional text based on platform)
             const sourceLink = document.getElementById('sourceLink');
             sourceLink.href = recipe.source_url;
+            if (platform === 'website') {
+                sourceLink.innerHTML = '🌐 View Original Recipe';
+            } else {
+                sourceLink.innerHTML = '🎥 View Original Video';
+            }
 
             // Show result
             showResult();

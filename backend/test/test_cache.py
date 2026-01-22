@@ -1,11 +1,13 @@
 """
 Test Cache Functionality Without API Calls
 Tests URL normalization, cache operations, and Redis connection
+Uses real recipe data from test_urls.csv
 """
 
 import asyncio
 import sys
 import os
+import csv
 from datetime import datetime
 
 # Add parent directory to path so we can import backend modules
@@ -16,6 +18,7 @@ from url_normalizer import url_normalizer
 from cache_manager import cache_manager
 from models import Recipe
 from config import config
+from platform_detector import detect_platform
 
 
 def print_header(text):
@@ -38,6 +41,63 @@ def print_info(text):
 def print_error(text):
     """Print error message"""
     print(f"✗ {text}")
+
+
+def load_test_recipes():
+    """Load test recipes from test_urls.csv and test_websites.csv"""
+    recipes = []
+
+    # Load from both CSV files
+    csv_files = ['test_urls.csv', 'test_websites.csv']
+
+    for csv_file in csv_files:
+        csv_path = os.path.join(os.path.dirname(__file__), csv_file)
+
+        if not os.path.exists(csv_path):
+            print_info(f"Skipping {csv_file} - file not found")
+            continue
+
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                title = (row.get('Title') or '').strip()
+                url = (row.get('URL') or '').strip()
+                ingredients_text = (row.get('Ingredients') or '').strip()
+                instructions_text = (row.get('Instructions') or '').strip()
+
+                if not url:
+                    continue
+
+                # Parse ingredients (newline separated)
+                ingredients = [i.strip() for i in ingredients_text.split('\n') if i.strip()] if ingredients_text else []
+
+                # Parse instructions (newline separated)
+                instructions = [s.strip() for s in instructions_text.split('\n') if s.strip()] if instructions_text else []
+
+                # Detect platform
+                platform = detect_platform(url)
+                if not platform:
+                    continue
+
+                # Create Recipe object
+                recipe = Recipe(
+                    title=title,
+                    ingredients=ingredients if ingredients else ["No ingredients listed"],
+                    steps=instructions if instructions else ["No instructions listed"],
+                    source_url=url,
+                    platform=platform,
+                    language="en",
+                    thumbnail_url=f"https://example.com/{platform}/{title.replace(' ', '_')}.jpg"
+                )
+
+                recipes.append({
+                    'recipe': recipe,
+                    'url': url,
+                    'platform': platform,
+                    'title': title
+                })
+
+    return recipes
 
 
 def test_url_normalization():
@@ -70,6 +130,17 @@ def test_url_normalization():
                 "https://www.instagram.com/reel/abc123xyz",
                 "https://www.instagram.com/p/abc123xyz",
             ]
+        },
+        # Website
+        {
+            "platform": "website",
+            "urls": [
+                "https://braziliankitchenabroad.com/brazilian-cheese-bread/",
+                "https://braziliankitchenabroad.com/brazilian-cheese-bread",
+                "http://braziliankitchenabroad.com/brazilian-cheese-bread/",
+                "https://braziliankitchenabroad.com/brazilian-cheese-bread?utm_source=facebook",
+                "https://braziliankitchenabroad.com/brazilian-cheese-bread#ingredients",
+            ]
         }
     ]
 
@@ -96,27 +167,35 @@ def test_url_normalization():
 
 
 async def test_cache_operations():
-    """Test cache set/get operations"""
-    print_header("Test 2: Cache Operations")
+    """Test cache set/get operations with real recipe data"""
+    print_header("Test 2: Cache Operations with Real Recipe Data")
 
-    # Create a mock recipe
-    mock_recipe = Recipe(
-        title="Test Recipe",
-        ingredients=["1 cup flour", "2 eggs", "1 cup milk"],
-        steps=["Mix ingredients", "Cook for 10 minutes", "Serve hot"],
-        source_url="https://youtube.com/watch?v=test123",
-        platform="youtube",
-        language="en",
-        thumbnail_url="https://example.com/thumb.jpg"
-    )
+    # Load real recipes from CSV
+    print_info("Loading recipes from test_urls.csv...")
+    test_recipes = load_test_recipes()
+
+    if not test_recipes:
+        print_error("No recipes found in test_urls.csv!")
+        return
+
+    print_success(f"Loaded {len(test_recipes)} recipes from CSV")
+
+    # Use first recipe for testing
+    test_data = test_recipes[0]
+    recipe = test_data['recipe']
+    url = test_data['url']
+    platform = test_data['platform']
+
+    print(f"\nTesting with: {recipe.title}")
+    print(f"Platform: {platform}")
+    print(f"URL: {url}")
+    print(f"Ingredients: {len(recipe.ingredients)} items")
+    print(f"Steps: {len(recipe.steps)} steps")
 
     # Generate cache key
-    canonical_url, cache_key = url_normalizer.normalize_and_hash(
-        "https://youtube.com/watch?v=test123",
-        "youtube"
-    )
+    canonical_url, cache_key = url_normalizer.normalize_and_hash(url, platform)
 
-    print_info(f"Test URL: https://youtube.com/watch?v=test123")
+    print_info(f"Canonical URL: {canonical_url}")
     print_info(f"Cache Key: {cache_key}")
 
     # Test 1: Cache miss
@@ -129,7 +208,7 @@ async def test_cache_operations():
 
     # Test 2: Store in cache
     print("\n2. Storing recipe in cache...")
-    await cache_manager.set(cache_key, mock_recipe, canonical_url, "youtube")
+    await cache_manager.set(cache_key, recipe, canonical_url, platform)
     print_success("Recipe stored in cache")
 
     # Test 3: Cache hit
@@ -140,29 +219,46 @@ async def test_cache_operations():
         print(f"  Title: {cached.title}")
         print(f"  Ingredients: {len(cached.ingredients)} items")
         print(f"  Steps: {len(cached.steps)} steps")
+        print(f"  Platform: {cached.platform}")
+        print(f"  Language: {cached.language}")
+
+        # Verify data integrity
+        if cached.title == recipe.title and len(cached.ingredients) == len(recipe.ingredients):
+            print_success("Data integrity verified!")
+        else:
+            print_error("Data mismatch detected!")
     else:
         print_error("Cache miss (unexpected!)")
 
-    # Test 4: Different URL format, same video (should hit cache)
-    print("\n4. Testing URL normalization (different format)...")
-    different_url = "https://youtu.be/test123"
-    canonical_url2, cache_key2 = url_normalizer.normalize_and_hash(
-        different_url,
-        "youtube"
-    )
+    # Test 4: Store all recipes from CSV
+    print("\n4. Storing all recipes from CSV...")
+    for i, test_data in enumerate(test_recipes, 1):
+        recipe = test_data['recipe']
+        url = test_data['url']
+        platform = test_data['platform']
 
-    print_info(f"Different URL: {different_url}")
-    print_info(f"Cache Key: {cache_key2}")
+        canonical_url, cache_key = url_normalizer.normalize_and_hash(url, platform)
+        await cache_manager.set(cache_key, recipe, canonical_url, platform)
+        print(f"   {i}. Cached: {recipe.title[:40]}...")
 
-    if cache_key == cache_key2:
-        print_success("Same cache key for different URL format!")
-        cached2 = await cache_manager.get(cache_key2)
-        if cached2:
-            print_success("Cache hit with different URL format!")
-        else:
-            print_error("Cache miss (unexpected!)")
-    else:
-        print_error("Different cache keys!")
+    print_success(f"All {len(test_recipes)} recipes cached!")
+
+    # Test 5: Verify all can be retrieved
+    print("\n5. Verifying all cached recipes...")
+    success_count = 0
+    for test_data in test_recipes:
+        url = test_data['url']
+        platform = test_data['platform']
+        canonical_url, cache_key = url_normalizer.normalize_and_hash(url, platform)
+
+        cached = await cache_manager.get(cache_key)
+        if cached:
+            success_count += 1
+
+    print_success(f"Retrieved {success_count}/{len(test_recipes)} recipes from cache")
+
+    if success_count == len(test_recipes):
+        print_success("All recipes successfully cached and retrieved!")
 
 
 async def test_cache_stats():
@@ -221,36 +317,40 @@ async def test_redis_connection():
 
 
 async def test_cache_invalidation():
-    """Test cache invalidation"""
+    """Test cache invalidation with real recipe data"""
     print_header("Test 5: Cache Invalidation")
 
-    # Create and cache a recipe
-    mock_recipe = Recipe(
-        title="Recipe to Delete",
-        ingredients=["test"],
-        steps=["test"],
-        source_url="https://youtube.com/watch?v=delete123",
-        platform="youtube",
-        language="en"
-    )
+    # Load real recipes from CSV
+    test_recipes = load_test_recipes()
 
-    canonical_url, cache_key = url_normalizer.normalize_and_hash(
-        "https://youtube.com/watch?v=delete123",
-        "youtube"
-    )
+    if not test_recipes or len(test_recipes) < 2:
+        print_error("Need at least 2 recipes in test_urls.csv!")
+        return
+
+    # Use last recipe for invalidation test
+    test_data = test_recipes[-1]
+    recipe = test_data['recipe']
+    url = test_data['url']
+    platform = test_data['platform']
+
+    print_info(f"Testing with: {recipe.title}")
+
+    canonical_url, cache_key = url_normalizer.normalize_and_hash(url, platform)
 
     print_info(f"Cache Key: {cache_key}")
 
     # Store in cache
     print("\n1. Storing recipe...")
-    await cache_manager.set(cache_key, mock_recipe, canonical_url, "youtube")
-    print_success("Recipe stored")
+    await cache_manager.set(cache_key, recipe, canonical_url, platform)
+    print_success(f"Recipe stored: {recipe.title}")
 
     # Verify it's cached
     print("\n2. Verifying cache...")
     cached = await cache_manager.get(cache_key)
     if cached:
         print_success("Recipe found in cache")
+        print(f"  Title: {cached.title}")
+        print(f"  Ingredients: {len(cached.ingredients)} items")
     else:
         print_error("Recipe not in cache!")
         return

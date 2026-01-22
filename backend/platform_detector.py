@@ -30,17 +30,22 @@ class PlatformDetector:
         Detect the platform from a URL
 
         Args:
-            url: The video URL
+            url: The video or website URL
 
         Returns:
-            Platform name ("youtube", "tiktok", "instagram") or None if unsupported
+            Platform name ("youtube", "tiktok", "instagram", "website") or None if unsupported
         """
         url_lower = url.lower()
 
+        # Check video platforms first
         for platform, patterns in cls.PLATFORM_PATTERNS.items():
             for pattern in patterns:
                 if re.search(pattern, url_lower):
                     return platform
+
+        # If URL has http/https and not a video platform, assume website
+        if re.match(r'https?://', url_lower):
+            return "website"
 
         return None
 

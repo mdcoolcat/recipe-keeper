@@ -12,11 +12,12 @@ This directory contains all test files for the Recipe Keeper backend.
 **What it tests:**
 - URL normalization for YouTube, TikTok, Instagram
 - Cache key generation (SHA256 hashing)
-- Cache set/get operations
+- Cache set/get operations with real recipe data from test_urls.csv
 - Redis connection health
 - Cache statistics
 - Cache invalidation
 - Memory cache fallback
+- Caching all 5 recipes from CSV and retrieving them
 
 **Run:**
 ```bash
