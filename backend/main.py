@@ -140,6 +140,26 @@ async def extract_recipe(request: ExtractRecipeRequest):
         print(f"Getting metadata for {platform} video...")
         metadata = video_processor.get_video_info(url)
 
+        if not metadata:
+            # Metadata extraction failed - likely bot detection
+            print("⚠️  Could not extract video metadata (description/comments)")
+            if platform == "youtube":
+                return ExtractRecipeResponse(
+                    success=False,
+                    platform=platform,
+                    error=(
+                        "Could not access this YouTube video. "
+                        "YouTube is blocking automated access. "
+                        "Please try a different video or check if the recipe is in the video description."
+                    )
+                )
+            else:
+                return ExtractRecipeResponse(
+                    success=False,
+                    platform=platform,
+                    error=f"Could not access video metadata from {platform}"
+                )
+
         if metadata:
             title = metadata.get("title", "")
             description = metadata.get("description", "")
@@ -194,10 +214,20 @@ async def extract_recipe(request: ExtractRecipeRequest):
         print("No text recipe found, falling back to video analysis...")
         video_path = video_processor.download_video(url, platform)
         if not video_path:
+            # Video download failed - provide helpful error message
+            if platform == "youtube":
+                error_msg = (
+                    "Could not extract recipe from this YouTube video. "
+                    "The recipe was not found in the description or comments, and video download was blocked. "
+                    "Try a different video or check if the recipe is in the description."
+                )
+            else:
+                error_msg = f"Failed to download video from {platform}. Recipe not found in description or comments."
+
             return ExtractRecipeResponse(
                 success=False,
                 platform=platform,
-                error=f"Failed to download video from {platform}"
+                error=error_msg
             )
 
         # Extract recipe from downloaded video

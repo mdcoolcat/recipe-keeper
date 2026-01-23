@@ -35,7 +35,21 @@ class VideoProcessor:
                 "quiet": False,  # Show output for debugging
                 "no_warnings": False,
                 "extract_flat": False,
+                # Anti-bot measures
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["android", "web"],  # Use Android client to bypass bot detection
+                        "skip": ["dash", "hls"],  # Skip DASH/HLS formats that might require more validation
+                    }
+                },
             }
+
+            # Add cookies if available from environment variable
+            cookies_path = os.getenv("YOUTUBE_COOKIES_PATH")
+            if cookies_path and os.path.exists(cookies_path):
+                ydl_opts["cookiefile"] = cookies_path
+                print(f"Using cookies from: {cookies_path}")
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -49,7 +63,14 @@ class VideoProcessor:
             return None
 
         except Exception as e:
-            print(f"Error downloading video: {str(e)}")
+            error_msg = str(e)
+            print(f"Error downloading video: {error_msg}")
+
+            # Check if it's a bot detection error
+            if "Sign in to confirm" in error_msg or "not a bot" in error_msg:
+                print("⚠️  YouTube bot detection triggered. Video analysis unavailable.")
+                print("💡 Tip: Recipe may still be extracted from description/comments.")
+
             return None
 
     def get_video_info(self, url: str) -> Optional[Dict[str, Any]]:
@@ -68,8 +89,21 @@ class VideoProcessor:
                 "no_warnings": True,
                 "extract_flat": False,
                 "getcomments": True,  # Extract comments
-                "extractor_args": {"youtube": {"comment_sort": ["top"]}},
+                # Anti-bot measures
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["android", "web"],  # Use Android client to bypass bot detection
+                        "comment_sort": ["top"],
+                        "skip": ["dash", "hls"],
+                    }
+                },
             }
+
+            # Add cookies if available from environment variable
+            cookies_path = os.getenv("YOUTUBE_COOKIES_PATH")
+            if cookies_path and os.path.exists(cookies_path):
+                ydl_opts["cookiefile"] = cookies_path
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -94,7 +128,14 @@ class VideoProcessor:
                 }
 
         except Exception as e:
-            print(f"Error extracting video info: {str(e)}")
+            error_msg = str(e)
+            print(f"Error extracting video info: {error_msg}")
+
+            # Check if it's a bot detection error
+            if "Sign in to confirm" in error_msg or "not a bot" in error_msg:
+                print("⚠️  YouTube bot detection triggered for metadata extraction.")
+                print("💡 Attempting to continue with limited info...")
+
             return None
 
     def cleanup(self, file_path: str):
