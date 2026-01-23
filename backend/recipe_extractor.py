@@ -17,7 +17,7 @@ class RecipeExtractor:
         self.client = genai.Client(api_key=config.GEMINI_API_KEY)
         self.model_id = 'models/gemini-2.0-flash'  # Stable model with better free tier than 2.5
 
-    def extract_from_text(self, text: str, title: str, url: str, platform: str, thumbnail_url: Optional[str] = None) -> Optional[Recipe]:
+    def extract_from_text(self, text: str, title: str, url: str, platform: str, thumbnail_url: Optional[str] = None, author: str = "") -> Optional[Recipe]:
         """
         Extract recipe from text (description or comment)
 
@@ -27,6 +27,7 @@ class RecipeExtractor:
             url: Original video URL
             platform: Platform name
             thumbnail_url: Video thumbnail URL
+            author: Video author/channel name
 
         Returns:
             Recipe object or None if extraction failed
@@ -68,7 +69,7 @@ Return ONLY the JSON object, no other text.
                 contents=prompt
             )
 
-            return self._parse_response(response.text, url, platform, thumbnail_url)
+            return self._parse_response(response.text, url, platform, thumbnail_url, author)
 
         except Exception as e:
             error_msg = str(e)
@@ -80,7 +81,7 @@ Return ONLY the JSON object, no other text.
 
             return None
 
-    def extract_from_video_file(self, video_path: str, url: str, platform: str, thumbnail_url: Optional[str] = None) -> Optional[Recipe]:
+    def extract_from_video_file(self, video_path: str, url: str, platform: str, thumbnail_url: Optional[str] = None, author: str = "") -> Optional[Recipe]:
         """
         Extract recipe from downloaded video file
 
@@ -89,6 +90,7 @@ Return ONLY the JSON object, no other text.
             url: Original video URL
             platform: Platform name
             thumbnail_url: Video thumbnail URL
+            author: Video author/channel name
 
         Returns:
             Recipe object or None if extraction failed
@@ -116,7 +118,7 @@ Return ONLY the JSON object, no other text.
                 contents=[prompt, video_file]
             )
 
-            return self._parse_response(response.text, url, platform, thumbnail_url)
+            return self._parse_response(response.text, url, platform, thumbnail_url, author)
 
         except Exception as e:
             error_msg = str(e)
@@ -160,7 +162,7 @@ Important guidelines:
 Return ONLY the JSON object, no other text.
 """
 
-    def _parse_response(self, response_text: str, source_url: str, platform: str, thumbnail_url: Optional[str] = None) -> Optional[Recipe]:
+    def _parse_response(self, response_text: str, source_url: str, platform: str, thumbnail_url: Optional[str] = None, author: str = "") -> Optional[Recipe]:
         """
         Parse Gemini response into Recipe object
 
@@ -169,6 +171,7 @@ Return ONLY the JSON object, no other text.
             source_url: Original video URL
             platform: Platform name
             thumbnail_url: Video thumbnail URL
+            author: Video author/channel name
 
         Returns:
             Recipe object or None if parsing failed
@@ -200,7 +203,8 @@ Return ONLY the JSON object, no other text.
                 source_url=source_url,
                 platform=platform,
                 language=data.get("language", "en"),
-                thumbnail_url=thumbnail_url
+                thumbnail_url=thumbnail_url,
+                author=author
             )
 
             return recipe

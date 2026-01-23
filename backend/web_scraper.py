@@ -6,6 +6,7 @@ Orchestrates multi-layer recipe extraction from recipe websites
 import requests
 from typing import Optional, Tuple
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 from models import Recipe
 from schema_extractor import schema_extractor
 from wordpress_plugin_detector import wordpress_plugin_detector
@@ -28,6 +29,37 @@ class WebScraper:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1'
         }
+
+    def extract_author_from_url(self, url: str) -> str:
+        """
+        Extract author/site name from URL domain
+
+        Examples:
+            https://jaroflemons.com/recipe -> jaroflemons
+            https://www.natashaskitchen.com/meatballs -> natashaskitchen
+
+        Args:
+            url: Website URL
+
+        Returns:
+            Author name extracted from domain
+        """
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc or parsed.path
+
+            # Remove www. prefix
+            if domain.startswith('www.'):
+                domain = domain[4:]
+
+            # Extract main domain name (before first dot)
+            # e.g., "natashaskitchen.com" -> "natashaskitchen"
+            author = domain.split('.')[0]
+
+            return author
+
+        except Exception as e:
+            return ""
 
     def fetch_html(self, url: str) -> Tuple[str, str]:
         """
@@ -83,11 +115,22 @@ class WebScraper:
             # Use final URL (after redirects) as source
             source_url = final_url
 
+            # Extract author from domain
+            author = self.extract_author_from_url(source_url)
+            print(f"DEBUG: Extracted author from URL: '{author}'")
+
             # Layer 1: Schema.org JSON-LD extraction
             print("Trying Schema.org JSON-LD extraction...")
             recipe = schema_extractor.extract_from_html(html, source_url)
             if recipe:
                 print("Successfully extracted from Schema.org JSON-LD!")
+                print(f"DEBUG: Recipe author from Schema.org: '{recipe.author}'")
+                # Add author if not already set
+                if not recipe.author:
+                    recipe.author = author
+                    print(f"DEBUG: Set author from URL: '{author}'")
+                else:
+                    print(f"DEBUG: Keeping author from Schema.org: '{recipe.author}'")
                 return recipe
 
             # Layer 2: WordPress plugin detection
@@ -95,13 +138,20 @@ class WebScraper:
             recipe = await self.extract_from_wordpress_plugins(html, source_url)
             if recipe:
                 print("Successfully extracted from WordPress plugin!")
+                print(f"DEBUG: Recipe author from WordPress: '{recipe.author}'")
+                # Add author if not already set
+                if not recipe.author:
+                    recipe.author = author
+                    print(f"DEBUG: Set author from URL: '{author}'")
+                print(f"DEBUG: Final author: '{recipe.author}'")
                 return recipe
 
             # Layer 3: recipe-scrapers library
             print("Trying recipe-scrapers library...")
-            recipe = await self.extract_from_recipe_scrapers(source_url)
+            recipe = await self.extract_from_recipe_scrapers(source_url, author)
             if recipe:
                 print("Successfully extracted from recipe-scrapers!")
+                print(f"DEBUG: Final author: '{recipe.author}'")
                 return recipe
 
             # Layer 4: Heuristic HTML parsing
@@ -109,6 +159,12 @@ class WebScraper:
             recipe = await self.extract_from_heuristics(html, source_url)
             if recipe:
                 print("Successfully extracted from heuristic parsing!")
+                print(f"DEBUG: Recipe author from heuristic: '{recipe.author}'")
+                # Add author if not already set
+                if not recipe.author:
+                    recipe.author = author
+                    print(f"DEBUG: Set author from URL: '{author}'")
+                print(f"DEBUG: Final author: '{recipe.author}'")
                 return recipe
 
             # Layer 5: Gemini AI fallback
@@ -116,6 +172,12 @@ class WebScraper:
             recipe = await self.extract_from_gemini(html, source_url)
             if recipe:
                 print("Successfully extracted from Gemini AI!")
+                print(f"DEBUG: Recipe author from Gemini: '{recipe.author}'")
+                # Add author if not already set
+                if not recipe.author:
+                    recipe.author = author
+                    print(f"DEBUG: Set author from URL: '{author}'")
+                print(f"DEBUG: Final author: '{recipe.author}'")
                 return recipe
 
             print("All extraction methods failed")
@@ -140,7 +202,7 @@ class WebScraper:
         """
         return wordpress_plugin_detector.extract_from_html(html, source_url)
 
-    async def extract_from_recipe_scrapers(self, url: str) -> Optional[Recipe]:
+    async def extract_from_recipe_scrapers(self, url: str, author: str = "") -> Optional[Recipe]:
         """
         Extract using recipe-scrapers library (Phase 5)
 
@@ -150,6 +212,7 @@ class WebScraper:
 
         Args:
             url: Recipe URL
+            author: Author name extracted from domain
 
         Returns:
             Recipe object or None
@@ -192,7 +255,8 @@ class WebScraper:
                 source_url=url,
                 platform="website",
                 language="en",
-                thumbnail_url=thumbnail_url
+                thumbnail_url=thumbnail_url,
+                author=author
             )
 
         except Exception as e:

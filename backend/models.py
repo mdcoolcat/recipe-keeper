@@ -17,6 +17,7 @@ class Recipe(BaseModel):
     platform: str
     language: str = "en"
     thumbnail_url: Optional[str] = None
+    author: Optional[str] = None
 
 
 class ExtractRecipeResponse(BaseModel):

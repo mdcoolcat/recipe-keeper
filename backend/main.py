@@ -78,11 +78,14 @@ async def extract_recipe(request: ExtractRecipeRequest):
     cache_key = None
     canonical_url = None
     if config.CACHE_ENABLED and use_cache:
+        print(f"DEBUG: Cache enabled, checking cache for URL: {url}")
         canonical_url, cache_key = url_normalizer.normalize_and_hash(url, platform)
-        print(f"Cache key: {cache_key} for {canonical_url}")
+        print(f"DEBUG: Cache key: {cache_key} for canonical URL: {canonical_url}")
 
         cached_recipe = await cache_manager.get(cache_key)
         if cached_recipe:
+            print(f"DEBUG: ✓ Returning cached recipe: {cached_recipe.title}")
+            print(f"DEBUG: Cached recipe author: '{cached_recipe.author}'")
             return ExtractRecipeResponse(
                 success=True,
                 platform=platform,
@@ -90,6 +93,8 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 from_cache=True,
                 cached_at=datetime.now().isoformat()
             )
+        else:
+            print(f"DEBUG: Cache miss, proceeding with extraction")
 
     # NEW: Website extraction
     if platform == "website":
@@ -106,6 +111,8 @@ async def extract_recipe(request: ExtractRecipeRequest):
             # Cache result
             if config.CACHE_ENABLED and cache_key:
                 await cache_manager.set(cache_key, recipe, canonical_url, platform)
+
+            print(f"DEBUG: Returning extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
 
             return ExtractRecipeResponse(
                 success=True,
@@ -138,18 +145,21 @@ async def extract_recipe(request: ExtractRecipeRequest):
             description = metadata.get("description", "")
             comments = metadata.get("comments", [])
             thumbnail_url = metadata.get("thumbnail", "")
+            author = metadata.get("uploader", "")  # Extract channel/author name
 
             print(f"Title: {title}")
             print(f"Description length: {len(description)} chars")
             print(f"Comments found: {len(comments)}")
+            print(f"Author: {author}")
             print(f"Thumbnail: {thumbnail_url[:100] if thumbnail_url else 'None'}...")
 
             # Step 2: Try extracting from description first
             if description and len(description) > 50:
                 print("Trying to extract from description...")
-                recipe = recipe_extractor.extract_from_text(description, title, url, platform, thumbnail_url)
+                recipe = recipe_extractor.extract_from_text(description, title, url, platform, thumbnail_url, author)
                 if recipe:
                     print("Successfully extracted from description!")
+                    print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
                     # Store in cache
                     if config.CACHE_ENABLED and cache_key:
                         await cache_manager.set(cache_key, recipe, canonical_url, platform)
@@ -165,10 +175,11 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 if comment.get("author_is_uploader") or len(comment.get("text", "")) > 100:
                     print(f"Trying to extract from comment by {comment.get('author')}...")
                     recipe = recipe_extractor.extract_from_text(
-                        comment.get("text", ""), title, url, platform, thumbnail_url
+                        comment.get("text", ""), title, url, platform, thumbnail_url, author
                     )
                     if recipe:
                         print("Successfully extracted from comment!")
+                        print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
                         # Store in cache
                         if config.CACHE_ENABLED and cache_key:
                             await cache_manager.set(cache_key, recipe, canonical_url, platform)
@@ -190,7 +201,7 @@ async def extract_recipe(request: ExtractRecipeRequest):
             )
 
         # Extract recipe from downloaded video
-        recipe = recipe_extractor.extract_from_video_file(video_path, url, platform, thumbnail_url)
+        recipe = recipe_extractor.extract_from_video_file(video_path, url, platform, thumbnail_url, author if metadata else "")
 
         # Clean up downloaded video
         if video_path:
@@ -201,6 +212,9 @@ async def extract_recipe(request: ExtractRecipeRequest):
             # Store in cache
             if config.CACHE_ENABLED and cache_key:
                 await cache_manager.set(cache_key, recipe, canonical_url, platform)
+
+            print(f"DEBUG: Returning extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
+
             return ExtractRecipeResponse(
                 success=True,
                 platform=platform,
@@ -208,6 +222,7 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 from_cache=False
             )
         else:
+            print(f"DEBUG: Recipe extraction failed - no recipe found")
             return ExtractRecipeResponse(
                 success=False,
                 platform=platform,

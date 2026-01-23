@@ -159,6 +159,10 @@ class WordPressPluginDetector:
             if img_elem:
                 thumbnail_url = img_elem.get('src', img_elem.get('data-src', ''))
 
+            print(f"DEBUG: WPRM extraction - Title: {title}")
+            print(f"DEBUG: WPRM extraction - Ingredients count: {len(ingredients)}")
+            print(f"DEBUG: WPRM extraction - Steps count: {len(steps)}")
+
             return Recipe(
                 title=title,
                 ingredients=ingredients,
@@ -166,7 +170,8 @@ class WordPressPluginDetector:
                 source_url=source_url,
                 platform="website",
                 language="en",
-                thumbnail_url=thumbnail_url
+                thumbnail_url=thumbnail_url,
+                author=None
             )
 
         except (AttributeError, TypeError) as e:
@@ -223,6 +228,10 @@ class WordPressPluginDetector:
             if img_elem:
                 thumbnail_url = img_elem.get('src', img_elem.get('data-src', ''))
 
+            print(f"DEBUG: Tasty Recipes extraction - Title: {title}")
+            print(f"DEBUG: Tasty Recipes extraction - Ingredients count: {len(ingredients)}")
+            print(f"DEBUG: Tasty Recipes extraction - Steps count: {len(steps)}")
+
             return Recipe(
                 title=title,
                 ingredients=ingredients,
@@ -230,7 +239,8 @@ class WordPressPluginDetector:
                 source_url=source_url,
                 platform="website",
                 language="en",
-                thumbnail_url=thumbnail_url
+                thumbnail_url=thumbnail_url,
+                author=None
             )
 
         except (AttributeError, TypeError) as e:
@@ -286,6 +296,10 @@ class WordPressPluginDetector:
             if img_elem:
                 thumbnail_url = img_elem.get('src', img_elem.get('data-src', ''))
 
+            print(f"DEBUG: WP Recipe Maker extraction - Title: {title}")
+            print(f"DEBUG: WP Recipe Maker extraction - Ingredients count: {len(ingredients)}")
+            print(f"DEBUG: WP Recipe Maker extraction - Steps count: {len(steps)}")
+
             return Recipe(
                 title=title,
                 ingredients=ingredients,
@@ -293,7 +307,8 @@ class WordPressPluginDetector:
                 source_url=source_url,
                 platform="website",
                 language="en",
-                thumbnail_url=thumbnail_url
+                thumbnail_url=thumbnail_url,
+                author=None
             )
 
         except (AttributeError, TypeError) as e:

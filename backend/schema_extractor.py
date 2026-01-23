@@ -145,6 +145,26 @@ class SchemaExtractor:
             if isinstance(language, dict):
                 language = language.get('@value', 'en')
 
+            # Extract author
+            author_data = recipe_data.get('author')
+            author = None
+            if author_data:
+                if isinstance(author_data, dict):
+                    author = author_data.get('name', '')
+                elif isinstance(author_data, str):
+                    author = author_data
+                elif isinstance(author_data, list) and len(author_data) > 0:
+                    first_author = author_data[0]
+                    if isinstance(first_author, dict):
+                        author = first_author.get('name', '')
+                    else:
+                        author = str(first_author)
+
+            print(f"DEBUG: Schema.org extraction - Title: {title}")
+            print(f"DEBUG: Schema.org extraction - Author from JSON-LD: {author}")
+            print(f"DEBUG: Schema.org extraction - Ingredients count: {len(ingredients)}")
+            print(f"DEBUG: Schema.org extraction - Steps count: {len(steps)}")
+
             return Recipe(
                 title=title,
                 ingredients=ingredients,
@@ -152,7 +172,8 @@ class SchemaExtractor:
                 source_url=source_url,
                 platform="website",
                 language=language,
-                thumbnail_url=thumbnail_url
+                thumbnail_url=thumbnail_url,
+                author=author
             )
 
         except (KeyError, AttributeError, TypeError) as e:

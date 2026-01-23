@@ -110,6 +110,10 @@ class HeuristicParser:
         # Extract thumbnail
         thumbnail_url = self._extract_thumbnail(soup)
 
+        print(f"DEBUG: Heuristic extraction - Title: {title}")
+        print(f"DEBUG: Heuristic extraction - Ingredients count: {len(ingredients)}")
+        print(f"DEBUG: Heuristic extraction - Steps count: {len(steps)}")
+
         return Recipe(
             title=title,
             ingredients=ingredients,
@@ -117,7 +121,8 @@ class HeuristicParser:
             source_url=source_url,
             platform="website",
             language="en",
-            thumbnail_url=thumbnail_url
+            thumbnail_url=thumbnail_url,
+            author=None
         )
 
     def _extract_title(self, soup: BeautifulSoup) -> str:
