@@ -91,7 +91,8 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 platform=platform,
                 recipe=cached_recipe,
                 from_cache=True,
-                cached_at=datetime.now().isoformat()
+                cached_at=datetime.now().isoformat(),
+                extraction_method="cache"
             )
         else:
             print(f"DEBUG: Cache miss, proceeding with extraction")
@@ -178,17 +179,26 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 print("Trying to extract from description...")
                 recipe = recipe_extractor.extract_from_text(description, title, url, platform, thumbnail_url, author)
                 if recipe:
-                    print("Successfully extracted from description!")
-                    print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
-                    # Store in cache
-                    if config.CACHE_ENABLED and cache_key:
-                        await cache_manager.set(cache_key, recipe, canonical_url, platform)
-                    return ExtractRecipeResponse(
-                        success=True,
-                        platform=platform,
-                        recipe=recipe,
-                        from_cache=False
-                    )
+                    # Check if recipe has actual content (ingredients or steps)
+                    has_content = (recipe.ingredients and len(recipe.ingredients) > 0) or (recipe.steps and len(recipe.steps) > 0)
+
+                    if has_content:
+                        print("Successfully extracted from description!")
+                        print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
+                        # Store in cache
+                        if config.CACHE_ENABLED and cache_key:
+                            await cache_manager.set(cache_key, recipe, canonical_url, platform)
+                        return ExtractRecipeResponse(
+                            success=True,
+                            platform=platform,
+                            recipe=recipe,
+                            from_cache=False,
+                            extraction_method="description"
+                        )
+                    else:
+                        print("Description extraction found title but no ingredients/steps. Will try video analysis...")
+                        # Save the title for later use with video extraction
+                        title = recipe.title
 
             # Step 3: Try extracting from author comments
             for comment in comments:
@@ -198,17 +208,24 @@ async def extract_recipe(request: ExtractRecipeRequest):
                         comment.get("text", ""), title, url, platform, thumbnail_url, author
                     )
                     if recipe:
-                        print("Successfully extracted from comment!")
-                        print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
-                        # Store in cache
-                        if config.CACHE_ENABLED and cache_key:
-                            await cache_manager.set(cache_key, recipe, canonical_url, platform)
-                        return ExtractRecipeResponse(
-                            success=True,
-                            platform=platform,
-                            recipe=recipe,
-                            from_cache=False
-                        )
+                        # Check if recipe has actual content (ingredients or steps)
+                        has_content = (recipe.ingredients and len(recipe.ingredients) > 0) or (recipe.steps and len(recipe.steps) > 0)
+
+                        if has_content:
+                            print("Successfully extracted from comment!")
+                            print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
+                            # Store in cache
+                            if config.CACHE_ENABLED and cache_key:
+                                await cache_manager.set(cache_key, recipe, canonical_url, platform)
+                            return ExtractRecipeResponse(
+                                success=True,
+                                platform=platform,
+                                recipe=recipe,
+                                from_cache=False,
+                                extraction_method="comment"
+                            )
+                        else:
+                            print("Comment extraction found title but no ingredients/steps. Continuing...")
 
         # Step 4: Fall back to video analysis
         print("No text recipe found, falling back to video analysis...")
@@ -249,7 +266,8 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 success=True,
                 platform=platform,
                 recipe=recipe,
-                from_cache=False
+                from_cache=False,
+                extraction_method="multimedia"
             )
         else:
             print(f"DEBUG: Recipe extraction failed - no recipe found")

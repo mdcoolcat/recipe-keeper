@@ -28,6 +28,7 @@ class ExtractRecipeResponse(BaseModel):
     error: Optional[str] = None
     from_cache: bool = False  # Indicate cache hit
     cached_at: Optional[str] = None  # ISO timestamp when cached
+    extraction_method: Optional[str] = None  # How recipe was extracted: "description", "comment", "multimedia", "cache"
 
 
 class HealthResponse(BaseModel):
