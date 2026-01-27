@@ -120,8 +120,8 @@ def main():
 
         # Wait a bit between requests to avoid rate limiting
         if i < len(tests):
-            print("\nWaiting 2 seconds before next test...")
-            time.sleep(2)
+            print("\nWaiting 20 seconds before next test...")
+            time.sleep(20)
 
     # Summary
     print(f"\n{'='*80}")

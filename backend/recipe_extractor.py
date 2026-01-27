@@ -1,7 +1,8 @@
 import json
+import re
 from google import genai
 from google.genai import types
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple, List
 from config import config
 from models import Recipe
 
@@ -16,6 +17,30 @@ class RecipeExtractor:
 
         self.client = genai.Client(api_key=config.GEMINI_API_KEY)
         self.model_id = 'models/gemini-2.0-flash'  # Stable model with better free tier than 2.5
+
+    def _parse_tiktok_description(self, text: str) -> Tuple[str, List[str]]:
+        """
+        Parse TikTok description to extract caption and hashtags
+
+        Args:
+            text: TikTok description text
+
+        Returns:
+            Tuple of (caption_text, list_of_hashtags)
+        """
+        # Split by hashtag symbol
+        parts = text.split('#')
+        caption = parts[0].strip()
+
+        # Extract hashtags (words after # symbols)
+        hashtags = []
+        for part in parts[1:]:
+            # Take the word(s) before any space or special character
+            tag = re.match(r'[\w]+', part)
+            if tag:
+                hashtags.append('#' + tag.group(0))
+
+        return caption, hashtags
 
     def extract_from_text(self, text: str, title: str, url: str, platform: str, thumbnail_url: Optional[str] = None, author: str = "") -> Optional[Recipe]:
         """
@@ -33,7 +58,42 @@ class RecipeExtractor:
             Recipe object or None if extraction failed
         """
         try:
-            prompt = f"""You are a recipe extraction AI. Extract the recipe from this text.
+            # For TikTok, parse description to extract caption and hashtags
+            if platform.lower() == "tiktok":
+                caption, hashtags = self._parse_tiktok_description(text)
+                hashtags_str = " ".join(hashtags) if hashtags else "none"
+
+                prompt = f"""You are a recipe extraction AI. Extract the recipe from this TikTok video description.
+
+Video Caption: {caption}
+Hashtags: {hashtags_str}
+
+Extract the following information:
+1. Recipe title - Create a clear, descriptive recipe title based on the caption and hashtags. DO NOT use the caption as-is. Generate a proper recipe name (e.g., if hashtags include #cryingtiger #steak, create a title like "Crying Tiger Steak Recipe").
+2. Ingredients list (with exact quantities if stated in the caption)
+3. Cooking steps/instructions (if mentioned in the caption)
+4. Language of the content (en for English, zh for Chinese, etc.)
+
+Return the information in the following JSON format:
+{{
+  "title": "Descriptive Recipe Name",
+  "ingredients": ["ingredient 1 with quantity", "ingredient 2 with quantity", ...],
+  "steps": ["step 1", "step 2", ...],
+  "language": "en"
+}}
+
+Important guidelines:
+- Generate a professional recipe title from the hashtags and caption context
+- Keep all quantities EXACTLY as stated in the caption
+- If no ingredients/steps are in the caption, return empty arrays [] (recipe may be in the video)
+- Be concise but complete
+- If this is not a recipe, return: {{"error": "Not a recipe"}}
+
+Return ONLY the JSON object, no other text.
+"""
+            else:
+                # For other platforms, use the original prompt
+                prompt = f"""You are a recipe extraction AI. Extract the recipe from this text.
 
 Video Title: {title}
 
@@ -41,7 +101,7 @@ Recipe Text:
 {text}
 
 Extract the following information:
-1. Recipe title (use the video title if no specific recipe title in text)
+1. Recipe title (create a clear title if not explicitly stated, or use the video title if appropriate)
 2. Ingredients list (with exact quantities as stated)
 3. Cooking steps/instructions (in order, if available)
 4. Language of the content (en for English, zh for Chinese, etc.)
