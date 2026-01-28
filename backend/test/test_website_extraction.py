@@ -303,7 +303,7 @@ class WebsiteExtractionTester:
                 expected_instructions = [i.strip() for i in instructions_str.split('\n') if i.strip()] if instructions_str else None
 
                 # Parse LLM expectation
-                expect_llm = row.get('LLM', 'False').strip().lower() == 'true'
+                expect_llm = (row.get('LLM') or 'False').strip().lower() == 'true'
 
                 await self.test_url(url, title, expected_ingredients, expected_instructions, expect_llm)
                 await asyncio.sleep(1)  # Be nice to servers
