@@ -194,6 +194,27 @@ async def extract_recipe(request: ExtractRecipeRequest):
                     if has_content:
                         print("Successfully extracted from description!")
                         print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
+
+                        # For TikTok, try to find author website and append to ingredients
+                        if platform == "tiktok":
+                            from tiktok_profile_scraper import tiktok_profile_scraper
+
+                            # Try description first
+                            author_website = tiktok_profile_scraper.extract_website_from_description(description)
+
+                            # If not in description, try profile
+                            if not author_website:
+                                profile_url = metadata.get("uploader_url")
+                                if profile_url:
+                                    author_website = tiktok_profile_scraper.extract_website_from_profile(profile_url)
+
+                            # Append website to ingredients if found
+                            if author_website:
+                                recipe.author_website_url = author_website
+                                if recipe.ingredients:
+                                    recipe.ingredients.append(f"📖 Full recipe available at: {author_website}")
+                                    print(f"Added author website to ingredients: {author_website}")
+
                         # Store in cache
                         if config.CACHE_ENABLED and cache_key:
                             await cache_manager.set(cache_key, recipe, canonical_url, platform)
@@ -223,6 +244,27 @@ async def extract_recipe(request: ExtractRecipeRequest):
                         if has_content:
                             print("Successfully extracted from comment!")
                             print(f"DEBUG: Extracted recipe - Title: '{recipe.title}', Author: '{recipe.author}'")
+
+                            # For TikTok, try to find author website and append to ingredients
+                            if platform == "tiktok":
+                                from tiktok_profile_scraper import tiktok_profile_scraper
+
+                                # Try description first
+                                author_website = tiktok_profile_scraper.extract_website_from_description(description)
+
+                                # If not in description, try profile
+                                if not author_website:
+                                    profile_url = metadata.get("uploader_url")
+                                    if profile_url:
+                                        author_website = tiktok_profile_scraper.extract_website_from_profile(profile_url)
+
+                                # Append website to ingredients if found
+                                if author_website:
+                                    recipe.author_website_url = author_website
+                                    if recipe.ingredients:
+                                        recipe.ingredients.append(f"📖 Full recipe available at: {author_website}")
+                                        print(f"Added author website to ingredients: {author_website}")
+
                             # Store in cache
                             if config.CACHE_ENABLED and cache_key:
                                 await cache_manager.set(cache_key, recipe, canonical_url, platform)
@@ -268,6 +310,26 @@ async def extract_recipe(request: ExtractRecipeRequest):
         has_content = recipe and ((recipe.ingredients and len(recipe.ingredients) > 0) or (recipe.steps and len(recipe.steps) > 0))
 
         if has_content:
+            # For TikTok, try to find author website and append to ingredients
+            if platform == "tiktok" and metadata:
+                from tiktok_profile_scraper import tiktok_profile_scraper
+
+                description = metadata.get("description", "")
+                author_website = tiktok_profile_scraper.extract_website_from_description(description)
+
+                # If not in description, try profile
+                if not author_website:
+                    profile_url = metadata.get("uploader_url")
+                    if profile_url:
+                        author_website = tiktok_profile_scraper.extract_website_from_profile(profile_url)
+
+                # Append website to ingredients if found
+                if author_website:
+                    recipe.author_website_url = author_website
+                    if recipe.ingredients:
+                        recipe.ingredients.append(f"📖 Full recipe available at: {author_website}")
+                        print(f"Added author website to ingredients: {author_website}")
+
             # Store in cache
             if config.CACHE_ENABLED and cache_key:
                 await cache_manager.set(cache_key, recipe, canonical_url, platform)
@@ -287,17 +349,17 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 print("No recipe in video, trying author's website...")
                 from tiktok_profile_scraper import tiktok_profile_scraper
 
-                # First, try extracting website from description
+                # Try description first
                 description = metadata.get("description", "")
                 author_website = tiktok_profile_scraper.extract_website_from_description(description)
 
-                # If not found in description, try profile
+                # If not in description, try profile
                 if not author_website:
                     profile_url = metadata.get("uploader_url")
                     if profile_url:
                         author_website = tiktok_profile_scraper.extract_website_from_profile(profile_url)
 
-                # If we found a website (from description or profile), try extracting recipe
+                # If we found a website (from description, username, or profile), try extracting recipe
                 if author_website:
                     print(f"Found author website: {author_website}")
 
