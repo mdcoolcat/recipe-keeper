@@ -56,6 +56,15 @@ async def health_check():
     return HealthResponse(status="ok", version="1.0.0")
 
 
+@app.get("/api/config")
+async def get_config():
+    """Get client-side configuration"""
+    return {
+        "progress_message_delay": config.PROGRESS_MESSAGE_DELAY_SEC,
+        "progress_message_text": config.PROGRESS_MESSAGE_TEXT
+    }
+
+
 @app.post("/api/extract-recipe", response_model=ExtractRecipeResponse)
 async def extract_recipe(request: ExtractRecipeRequest):
     """
@@ -255,7 +264,10 @@ async def extract_recipe(request: ExtractRecipeRequest):
             video_processor.cleanup(video_path)
 
         # Check if extraction was successful
-        if recipe:
+        # Recipe is complete if it has ingredients OR steps
+        has_content = recipe and ((recipe.ingredients and len(recipe.ingredients) > 0) or (recipe.steps and len(recipe.steps) > 0))
+
+        if has_content:
             # Store in cache
             if config.CACHE_ENABLED and cache_key:
                 await cache_manager.set(cache_key, recipe, canonical_url, platform)
@@ -270,11 +282,81 @@ async def extract_recipe(request: ExtractRecipeRequest):
                 extraction_method="multimedia"
             )
         else:
+            # Step 5: Try author's website as final fallback (TikTok only)
+            if platform == "tiktok" and metadata:
+                print("No recipe in video, trying author's website...")
+                from tiktok_profile_scraper import tiktok_profile_scraper
+
+                # First, try extracting website from description
+                description = metadata.get("description", "")
+                author_website = tiktok_profile_scraper.extract_website_from_description(description)
+
+                # If not found in description, try profile
+                if not author_website:
+                    profile_url = metadata.get("uploader_url")
+                    if profile_url:
+                        author_website = tiktok_profile_scraper.extract_website_from_profile(profile_url)
+
+                # If we found a website (from description or profile), try extracting recipe
+                if author_website:
+                    print(f"Found author website: {author_website}")
+
+                    # Use existing WebScraper to extract recipe
+                    recipe = await web_scraper.extract_recipe(author_website)
+
+                    if recipe:
+                        print(f"Successfully extracted recipe from author's website!")
+
+                        # Preserve TikTok video metadata (title, thumbnail, URL)
+                        # Only ingredients/steps come from the author's website
+                        original_title = metadata.get("title", "")
+                        original_thumbnail = metadata.get("thumbnail", "")
+
+                        # Clean the title - remove emojis and extra text like "recipe in our website"
+                        import re
+                        clean_title = original_title
+                        if original_title:
+                            # Remove emojis and special characters
+                            clean_title = re.sub(r'[^\w\s\-\',]', ' ', original_title)
+                            # Remove phrases like "recipe in", "recipe on", etc.
+                            clean_title = re.split(r'\s+recipe\s+(in|on|at|from)\s+', clean_title, flags=re.IGNORECASE)[0]
+                            # Remove website mentions
+                            clean_title = re.split(r'\s+https?://|www\.|\.[a-z]{2,3}(?:\s|$)', clean_title)[0]
+                            # Clean up extra spaces
+                            clean_title = ' '.join(clean_title.split()).strip()
+
+                        recipe.title = clean_title if clean_title else recipe.title
+                        recipe.source_url = url  # Keep original TikTok URL
+                        recipe.platform = platform  # Keep "tiktok"
+                        recipe.thumbnail_url = original_thumbnail  # Keep TikTok thumbnail
+                        recipe.author_website_url = author_website  # Add author's website URL
+
+                        # If ingredients/steps are empty, add a helpful message to ingredients
+                        if not recipe.ingredients and not recipe.steps:
+                            recipe.ingredients = [f"📖 Full recipe available at: {author_website}"]
+
+                        # Cache and return
+                        if config.CACHE_ENABLED and cache_key:
+                            await cache_manager.set(cache_key, recipe, canonical_url, platform)
+
+                        return ExtractRecipeResponse(
+                            success=True,
+                            platform=platform,
+                            recipe=recipe,
+                            from_cache=False,
+                            extraction_method="author_website"
+                        )
+                    else:
+                        print("Could not extract recipe from author's website")
+                else:
+                    print("No external website found in description or profile")
+
+            # Final failure - no recipe found anywhere
             print(f"DEBUG: Recipe extraction failed - no recipe found")
             return ExtractRecipeResponse(
                 success=False,
                 platform=platform,
-                error="Failed to extract recipe. No recipe found in description, comments, or video."
+                error="Failed to extract recipe. No recipe found in description, comments, video, or author's website."
             )
 
     except Exception as e:

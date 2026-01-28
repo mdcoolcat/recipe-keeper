@@ -18,6 +18,7 @@ class Recipe(BaseModel):
     language: str = "en"
     thumbnail_url: Optional[str] = None
     author: Optional[str] = None
+    author_website_url: Optional[str] = None  # External website where recipe was found (for author_website extraction)
 
 
 class ExtractRecipeResponse(BaseModel):
@@ -28,7 +29,7 @@ class ExtractRecipeResponse(BaseModel):
     error: Optional[str] = None
     from_cache: bool = False  # Indicate cache hit
     cached_at: Optional[str] = None  # ISO timestamp when cached
-    extraction_method: Optional[str] = None  # How recipe was extracted: "description", "comment", "multimedia", "cache"
+    extraction_method: Optional[str] = None  # How recipe was extracted: "description", "comment", "multimedia", "author_website", "cache"
 
 
 class HealthResponse(BaseModel):

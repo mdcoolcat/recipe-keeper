@@ -23,6 +23,10 @@ class Config:
     MAX_VIDEO_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", 100))
     VIDEO_DOWNLOAD_TIMEOUT = int(os.getenv("VIDEO_DOWNLOAD_TIMEOUT", 60))
 
+    # Progress message settings
+    PROGRESS_MESSAGE_DELAY_SEC = int(os.getenv("PROGRESS_MESSAGE_DELAY_SEC", 10))  # seconds
+    PROGRESS_MESSAGE_TEXT = os.getenv("PROGRESS_MESSAGE_TEXT", "Still working on it... Video processing can take up to 30 seconds.")
+
     # Cache settings
     CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
     CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "86400"))  # 24 hours

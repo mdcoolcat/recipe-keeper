@@ -37,6 +37,7 @@
         <div class="loading" id="loading">
             <div class="spinner"></div>
             <p class="loading-text">Extracting recipe...</p>
+            <p class="loading-progress" id="loadingProgress" style="display: none; margin-top: 10px; font-size: 0.9rem; color: #888;"></p>
         </div>
 
         <div class="error" id="error"></div>
@@ -128,6 +129,31 @@
     <script>
         // Use current domain for API calls (works for both local and production)
         const API_BASE_URL = window.location.origin;
+
+        // Config loaded from backend
+        let appConfig = {
+            progress_message_delay: 10,
+            progress_message_text: "Still working on it... Video processing can take up to 30 seconds."
+        };
+
+        // Progress message timer
+        let progressTimer = null;
+
+        // Load config on page load
+        async function loadConfig() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/config`);
+                if (response.ok) {
+                    appConfig = await response.json();
+                    console.log('Config loaded:', appConfig);
+                }
+            } catch (error) {
+                console.warn('Failed to load config, using defaults:', error);
+            }
+        }
+
+        // Load config when page loads
+        loadConfig();
 
         async function extractRecipe() {
             const urlInput = document.getElementById('videoUrl');
@@ -224,7 +250,21 @@
             ingredientsList.innerHTML = '';
             recipe.ingredients.forEach(ingredient => {
                 const li = document.createElement('li');
-                li.textContent = ingredient;
+
+                // Check if ingredient contains a URL (pattern: "text: https://...")
+                const urlMatch = ingredient.match(/(.+?)(https?:\/\/[^\s]+)/);
+                if (urlMatch) {
+                    // Split text and URL
+                    const textPart = urlMatch[1].trim();
+                    const urlPart = urlMatch[2];
+
+                    // Create text node and link
+                    li.innerHTML = `${textPart} <a href="${urlPart}" target="_blank" rel="noopener noreferrer" style="color: #667eea; text-decoration: underline;">${urlPart}</a>`;
+                } else {
+                    // Regular ingredient without URL
+                    li.textContent = ingredient;
+                }
+
                 ingredientsList.appendChild(li);
             });
 
@@ -259,10 +299,35 @@
 
         function showLoading() {
             document.getElementById('loading').classList.add('active');
+
+            // Hide progress message initially
+            const progressElement = document.getElementById('loadingProgress');
+            progressElement.style.display = 'none';
+
+            // Clear any existing timer
+            if (progressTimer) {
+                clearTimeout(progressTimer);
+            }
+
+            // Start timer to show progress message
+            progressTimer = setTimeout(() => {
+                progressElement.textContent = appConfig.progress_message_text;
+                progressElement.style.display = 'block';
+            }, appConfig.progress_message_delay * 1000);
         }
 
         function hideLoading() {
             document.getElementById('loading').classList.remove('active');
+
+            // Clear progress timer
+            if (progressTimer) {
+                clearTimeout(progressTimer);
+                progressTimer = null;
+            }
+
+            // Hide progress message
+            const progressElement = document.getElementById('loadingProgress');
+            progressElement.style.display = 'none';
         }
 
         function showResult() {

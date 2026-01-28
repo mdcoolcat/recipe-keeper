@@ -123,6 +123,7 @@ class VideoProcessor:
                     "description": info.get("description"),
                     "duration": info.get("duration"),
                     "uploader": info.get("uploader"),
+                    "uploader_url": info.get("uploader_url"),  # Profile URL for TikTok/Instagram/YouTube
                     "thumbnail": info.get("thumbnail"),
                     "comments": top_comments,
                 }
